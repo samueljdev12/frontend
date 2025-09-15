@@ -1,0 +1,18 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="16" fill="#3B82F6"/>
+  
+  <!-- Document/Agenda icon -->
+  <rect x="8" y="6" width="12" height="16" rx="1" fill="white"/>
+  
+  <!-- Lines representing agenda items -->
+  <line x1="10" y1="10" x2="18" y2="10" stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="10" y1="13" x2="16" y2="13" stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="10" y1="16" x2="18" y2="16" stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="10" y1="19" x2="14" y2="19" stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round"/>
+  
+  <!-- Clock icon overlay -->
+  <circle cx="20" cy="20" r="4" fill="white" stroke="#3B82F6" stroke-width="1"/>
+  <line x1="20" y1="20" x2="20" y2="17" stroke="#3B82F6" stroke-width="1" stroke-linecap="round"/>
+  <line x1="20" y1="20" x2="22" y2="20" stroke="#3B82F6" stroke-width="1" stroke-linecap="round"/>
+</svg>

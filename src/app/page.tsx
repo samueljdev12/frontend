@@ -18,6 +18,7 @@ function HomeContent() {
   const [savedAgendaId, setSavedAgendaId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isLoadingShared, setIsLoadingShared] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   // Load shared agenda on page load
   useEffect(() => {
@@ -32,6 +33,7 @@ function HomeContent() {
             setMeetingTitle(sharedAgenda.meeting_title);
             setShareToken(sharedAgenda.share_token);
             setIsConfirmed(true);
+            setShowSuccessMessage(false); // Don't show success message for shared agendas
           } else {
             setError('Agenda not found or is not public.');
           }
@@ -123,6 +125,7 @@ function HomeContent() {
       }
       
       setIsConfirmed(true);
+      setShowSuccessMessage(true);
       alert('Agenda saved successfully!');
     } catch (err) {
       setError('Failed to save agenda. Please try again.');
@@ -150,10 +153,19 @@ function HomeContent() {
         <div className="max-w-2xl mx-auto px-6 py-8">
           <a 
             href="/" 
-            className="block hover:opacity-80 transition-opacity"
+            className="flex items-center gap-4 hover:opacity-80 transition-opacity group"
           >
-            <h1 className="text-2xl font-semibold text-gray-900">QuickMeet</h1>
-            <p className="text-sm text-gray-500 mt-1">AI-powered meeting agendas</p>
+            <div className="flex-shrink-0">
+              <img 
+                src="/logo.svg" 
+                alt="QuickMeet Logo" 
+                className="w-10 h-10 group-hover:scale-105 transition-transform duration-200"
+              />
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-bold text-gray-900 leading-tight">QuickMeet</h1>
+              <p className="text-sm text-gray-500 leading-tight">AI-powered meeting agendas</p>
+            </div>
           </a>
         </div>
       </header>
@@ -195,7 +207,7 @@ function HomeContent() {
           )}
 
           {/* Confirmation Status */}
-          {isConfirmed && (
+          {showSuccessMessage && (
             <div className="space-y-4">
               <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                 <div className="flex items-center gap-2">
