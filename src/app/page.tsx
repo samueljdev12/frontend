@@ -2,6 +2,8 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import Image from 'next/image';
 import { Agenda } from '@/types/agenda';
 import { AgendaService } from '@/lib/agendaService';
 import MeetingInput from '@/components/agenda/MeetingInput';
@@ -15,7 +17,7 @@ function HomeContent() {
   const [agenda, setAgenda] = useState<Agenda | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
-  const [savedAgendaId, setSavedAgendaId] = useState<string | null>(null);
+  const [, setSavedAgendaId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isLoadingShared, setIsLoadingShared] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -37,7 +39,7 @@ function HomeContent() {
           } else {
             setError('Agenda not found or is not public.');
           }
-        } catch (err) {
+        } catch (err: unknown) {
           setError('Failed to load shared agenda.');
           console.error('Error loading shared agenda:', err);
         } finally {
@@ -71,8 +73,9 @@ function HomeContent() {
 
       const data = (await res.json()) as Agenda;
       setAgenda(data);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to generate agenda');
+    } catch (e: unknown) {
+      const error = e as Error;
+      setError(error?.message || 'Failed to generate agenda');
       setAgenda(null);
     } finally {
       setIsGenerating(false);
@@ -88,7 +91,7 @@ function HomeContent() {
     try {
       await navigator.clipboard.writeText(shareUrl);
       alert('Agenda link copied to clipboard!');
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to copy to clipboard:', err);
     }
   };
@@ -127,7 +130,7 @@ function HomeContent() {
       setIsConfirmed(true);
       setShowSuccessMessage(true);
       alert('Agenda saved successfully!');
-    } catch (err) {
+    } catch (err: unknown) {
       setError('Failed to save agenda. Please try again.');
       console.error('Error saving agenda:', err);
     } finally {
@@ -135,30 +138,22 @@ function HomeContent() {
     }
   };
 
-  const formatAgendaAsText = (agenda: Agenda) => {
-    let text = `AGENDA: ${meetingTitle}\n\n`;
-    text += `OPENING\n${agenda.opening}\n\n`;
-    text += `TOPICS\n`;
-    agenda.topics.forEach((topic, index) => {
-      text += `${index + 1}. ${topic.name} (${topic.duration})\n`;
-    });
-    text += `\nWRAP-UP / ACTION ITEMS\n${agenda.wrapUp}`;
-    return text;
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-6 py-8">
-          <a 
+          <Link 
             href="/" 
             className="flex items-center gap-4 hover:opacity-80 transition-opacity group"
           >
             <div className="flex-shrink-0">
-              <img 
+              <Image 
                 src="/logo.svg" 
                 alt="QuickMeet Logo" 
+                width={40}
+                height={40}
                 className="w-10 h-10 group-hover:scale-105 transition-transform duration-200"
               />
             </div>
@@ -166,7 +161,7 @@ function HomeContent() {
               <h1 className="text-2xl font-bold text-gray-900 leading-tight">QuickMeet</h1>
               <p className="text-sm text-gray-500 leading-tight">AI-powered meeting agendas</p>
             </div>
-          </a>
+          </Link>
         </div>
       </header>
 
@@ -196,7 +191,6 @@ function HomeContent() {
           {agenda && (
             <AgendaDisplay
               agenda={agenda}
-              meetingTitle={meetingTitle}
               onShare={handleShare}
               onUpdate={handleAgendaUpdate}
               onConfirm={handleConfirmAgenda}

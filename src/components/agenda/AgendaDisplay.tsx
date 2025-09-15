@@ -4,7 +4,6 @@ import Button from '@/components/ui/Button';
 
 interface AgendaDisplayProps {
   agenda: Agenda;
-  meetingTitle: string;
   onShare: () => void;
   onUpdate: (updatedAgenda: Agenda) => void;
   onConfirm: () => void;
@@ -15,7 +14,6 @@ interface AgendaDisplayProps {
 
 export default function AgendaDisplay({ 
   agenda, 
-  meetingTitle, 
   onShare,
   onUpdate,
   onConfirm,

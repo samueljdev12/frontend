@@ -4,6 +4,15 @@ import { getAiConfig } from '@/lib/aiConfig';
 type AgendaTopic = { name: string; duration: string };
 type Agenda = { opening: string; topics: AgendaTopic[]; wrapUp: string };
 
+interface ApiError {
+  status?: number;
+  code?: string;
+  type?: string;
+  message?: string;
+  response?: { data?: unknown };
+  error?: unknown;
+}
+
 const systemPrompt =
   'You are an expert meeting agenda generator. ALWAYS respond with STRICT, valid, minified JSON only, matching this exact TypeScript type: {"opening": string, "topics": Array<{"name": string, "duration": string}>, "wrapUp": string}. Do not add markdown, backticks, commentary, or any keys beyond these three. Keep opening and wrapUp concise. Infer the meeting type from the title and tailor topics accordingly.';
 
@@ -21,13 +30,16 @@ function tryExtractJson(text: string): string | null {
   return null;
 }
 
-function validateAgenda(obj: any): obj is Agenda {
+function validateAgenda(obj: unknown): obj is Agenda {
   if (!obj || typeof obj !== 'object') return false;
-  if (typeof obj.opening !== 'string') return false;
-  if (!Array.isArray(obj.topics)) return false;
-  if (typeof obj.wrapUp !== 'string') return false;
-  for (const t of obj.topics) {
-    if (!t || typeof t.name !== 'string' || typeof t.duration !== 'string') return false;
+  const candidate = obj as Record<string, unknown>;
+  if (typeof candidate.opening !== 'string') return false;
+  if (!Array.isArray(candidate.topics)) return false;
+  if (typeof candidate.wrapUp !== 'string') return false;
+  for (const t of candidate.topics) {
+    if (!t || typeof t !== 'object') return false;
+    const topic = t as Record<string, unknown>;
+    if (typeof topic.name !== 'string' || typeof topic.duration !== 'string') return false;
   }
   return true;
 }
@@ -76,7 +88,7 @@ export async function POST(request: NextRequest) {
     let parsed: unknown;
     try {
       parsed = JSON.parse(jsonText);
-    } catch (e) {
+    } catch {
       return NextResponse.json(
         { error: 'Model did not return valid JSON' },
         { status: 422 }
@@ -91,14 +103,15 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(parsed as Agenda);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Log as much as possible for debugging (status, code, type, data)
+    const apiError = error as ApiError;
     console.error('AI generation error:', {
-      status: error?.status,
-      code: error?.code,
-      type: error?.type,
-      message: error?.message,
-      data: error?.response?.data ?? error?.error ?? null,
+      status: apiError?.status,
+      code: apiError?.code,
+      type: apiError?.type,
+      message: apiError?.message,
+      data: apiError?.response?.data ?? apiError?.error ?? null,
     });
     return NextResponse.json(
       { error: 'Failed to generate agenda' },

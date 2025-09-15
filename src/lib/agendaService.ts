@@ -129,7 +129,7 @@ export class AgendaService {
   }
 
   // Increment view count (simplified for now)
-  static async incrementViewCount(id: string): Promise<void> {
+  static async incrementViewCount(_id: string): Promise<void> {
     // For now, we'll skip view count increment to avoid complexity
     // This can be implemented later with a proper RPC function in Supabase
     console.log('View count increment skipped for now')
