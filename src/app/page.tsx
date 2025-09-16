@@ -1,16 +1,19 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Agenda } from '@/types/agenda';
 import { AgendaService } from '@/lib/agendaService';
 import MeetingInput from '@/components/agenda/MeetingInput';
 import AgendaDisplay from '@/components/agenda/AgendaDisplay';
+import TemplateSelector from '@/components/templates/TemplateSelector';
+import { AgendaTemplateItem } from '@/lib/templates';
 
 function HomeContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [meetingTitle, setMeetingTitle] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -21,6 +24,28 @@ function HomeContent() {
   const [error, setError] = useState('');
   const [isLoadingShared, setIsLoadingShared] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  const resetToHome = () => {
+    setMeetingTitle('');
+    setIsGenerating(false);
+    setIsSaving(false);
+    setAgenda(null);
+    setIsConfirmed(false);
+    setShareToken(null);
+    setSavedAgendaId(null);
+    setError('');
+    setIsLoadingShared(false);
+    setShowSuccessMessage(false);
+    setShowTemplates(false);
+    // Remove any token/query from URL then reload for a clean slate
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', '/');
+      window.location.href = '/';
+    } else {
+      router.replace('/');
+    }
+  };
 
   // Load shared agenda on page load
   useEffect(() => {
@@ -50,6 +75,8 @@ function HomeContent() {
 
     loadSharedAgenda();
   }, [searchParams]);
+
+  // No scroll lock: keep page scrollable when modal is open
 
   const handleGenerateAgenda = async (title: string) => {
     setMeetingTitle(title);
@@ -146,6 +173,7 @@ function HomeContent() {
         <div className="max-w-2xl mx-auto px-6 py-8">
           <Link 
             href="/" 
+            onClick={(e) => { e.preventDefault(); resetToHome(); }}
             className="flex items-center gap-4 hover:opacity-80 transition-opacity group"
           >
             <div className="flex-shrink-0">
@@ -169,6 +197,7 @@ function HomeContent() {
         <div className="space-y-6">
           <MeetingInput 
             onGenerate={handleGenerateAgenda}
+            onOpenTemplates={() => setShowTemplates(true)}
             isGenerating={isGenerating}
           />
 
@@ -221,6 +250,27 @@ function HomeContent() {
           <p className="text-xs text-gray-400">Powered by AI</p>
         </div>
       </main>
+      {showTemplates && (
+        <TemplateSelector
+          onClose={() => setShowTemplates(false)}
+          onSelect={(t: AgendaTemplateItem) => {
+            setMeetingTitle(t.name);
+            setAgenda({
+              opening: t.agenda.opening,
+              topics: t.agenda.topics.map(tp => ({ ...tp })),
+              wrapUp: t.agenda.wrapUp,
+            });
+            setIsConfirmed(false);
+            setShareToken(null);
+            setShowSuccessMessage(false);
+            setShowTemplates(false);
+            // Strip any token so shared agendas don't override selection
+            if (typeof window !== 'undefined') {
+              window.history.replaceState(null, '', '/');
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

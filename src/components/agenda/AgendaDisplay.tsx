@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Agenda } from '@/types/agenda';
 import Button from '@/components/ui/Button';
 
@@ -23,6 +23,12 @@ export default function AgendaDisplay({
 }: AgendaDisplayProps) {
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState<Agenda>(agenda);
+
+  // Sync internal state when parent agenda changes (e.g., switching templates)
+  useEffect(() => {
+    setEditedContent(agenda);
+    setEditingSection(null);
+  }, [agenda]);
 
   const handleEdit = (section: string, value: string) => {
     const updated = { ...editedContent };

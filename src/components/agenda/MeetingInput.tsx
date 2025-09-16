@@ -4,10 +4,11 @@ import Button from '@/components/ui/Button';
 
 interface MeetingInputProps {
   onGenerate: (title: string) => void;
+  onOpenTemplates?: () => void;
   isGenerating: boolean;
 }
 
-export default function MeetingInput({ onGenerate, isGenerating }: MeetingInputProps) {
+export default function MeetingInput({ onGenerate, onOpenTemplates, isGenerating }: MeetingInputProps) {
   const [meetingTitle, setMeetingTitle] = useState('');
 
   const handleSubmit = () => {
@@ -31,20 +32,32 @@ export default function MeetingInput({ onGenerate, isGenerating }: MeetingInputP
         placeholder="What's your meeting about?"
         autoFocus
       />
-      <Button
-        onClick={handleSubmit}
-        disabled={!meetingTitle.trim() || isGenerating}
-        className="w-full py-4"
-      >
-        {isGenerating ? (
-          <div className="flex items-center justify-center gap-2">
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            Generating...
-          </div>
-        ) : (
-          'Generate Agenda'
+      <div className="flex gap-3">
+        <Button
+          onClick={handleSubmit}
+          disabled={!meetingTitle.trim() || isGenerating}
+          className="flex-1 py-4"
+        >
+          {isGenerating ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              Generating...
+            </div>
+          ) : (
+            'Generate Agenda'
+          )}
+        </Button>
+        {onOpenTemplates && (
+          <Button
+            onClick={onOpenTemplates}
+            variant="secondary"
+            className="px-4 py-4"
+            disabled={isGenerating}
+          >
+            Templates
+          </Button>
         )}
-      </Button>
+      </div>
     </div>
   );
 }
