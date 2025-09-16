@@ -1,291 +1,126 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
-import { Agenda } from '@/types/agenda';
-import { AgendaService } from '@/lib/agendaService';
-import MeetingInput from '@/components/agenda/MeetingInput';
-import AgendaDisplay from '@/components/agenda/AgendaDisplay';
-import TemplateSelector from '@/components/templates/TemplateSelector';
-import { AgendaTemplateItem } from '@/lib/templates';
-
-function HomeContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const [meetingTitle, setMeetingTitle] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [agenda, setAgenda] = useState<Agenda | null>(null);
-  const [isConfirmed, setIsConfirmed] = useState(false);
-  const [shareToken, setShareToken] = useState<string | null>(null);
-  const [, setSavedAgendaId] = useState<string | null>(null);
-  const [error, setError] = useState('');
-  const [isLoadingShared, setIsLoadingShared] = useState(false);
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
-
-  const resetToHome = () => {
-    setMeetingTitle('');
-    setIsGenerating(false);
-    setIsSaving(false);
-    setAgenda(null);
-    setIsConfirmed(false);
-    setShareToken(null);
-    setSavedAgendaId(null);
-    setError('');
-    setIsLoadingShared(false);
-    setShowSuccessMessage(false);
-    setShowTemplates(false);
-    // Remove any token/query from URL then reload for a clean slate
-    if (typeof window !== 'undefined') {
-      window.history.replaceState(null, '', '/');
-      window.location.href = '/';
-    } else {
-      router.replace('/');
-    }
-  };
-
-  // Load shared agenda on page load
-  useEffect(() => {
-    const loadSharedAgenda = async () => {
-      const token = searchParams.get('token');
-      if (token) {
-        setIsLoadingShared(true);
-        try {
-          const sharedAgenda = await AgendaService.getAgendaByShareToken(token);
-          if (sharedAgenda) {
-            setAgenda(AgendaService.toAgenda(sharedAgenda));
-            setMeetingTitle(sharedAgenda.meeting_title);
-            setShareToken(sharedAgenda.share_token);
-            setIsConfirmed(true);
-            setShowSuccessMessage(false); // Don't show success message for shared agendas
-          } else {
-            setError('Agenda not found or is not public.');
-          }
-        } catch (err: unknown) {
-          setError('Failed to load shared agenda.');
-          console.error('Error loading shared agenda:', err);
-        } finally {
-          setIsLoadingShared(false);
-        }
-      }
-    };
-
-    loadSharedAgenda();
-  }, [searchParams]);
-
-  // No scroll lock: keep page scrollable when modal is open
-
-  const handleGenerateAgenda = async (title: string) => {
-    setMeetingTitle(title);
-    setIsGenerating(true);
-    setIsConfirmed(false);
-    setShareToken(null);
-    setSavedAgendaId(null);
-    setError('');
-
-    try {
-      const res = await fetch('/api/generate-agenda', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ meetingTitle: title })
-      });
-
-      if (!res.ok) {
-        const msg = await res.json().catch(() => ({}));
-        throw new Error(msg?.error || 'Failed to generate agenda');
-      }
-
-      const data = (await res.json()) as Agenda;
-      setAgenda(data);
-    } catch (e: unknown) {
-      const error = e as Error;
-      setError(error?.message || 'Failed to generate agenda');
-      setAgenda(null);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleShare = async () => {
-    if (!shareToken) return;
-    
-    // Generate shareable link using the share token
-    const shareUrl = `${window.location.origin}?token=${shareToken}`;
-    
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      alert('Agenda link copied to clipboard!');
-    } catch (err: unknown) {
-      console.error('Failed to copy to clipboard:', err);
-    }
-  };
-
-  const handleAgendaUpdate = (updatedAgenda: Agenda) => {
-    setAgenda(updatedAgenda);
-  };
-
-  const handleConfirmAgenda = async () => {
-    if (!agenda) return;
-    
-    setIsSaving(true);
-    setError('');
-    
-    try {
-      // Save to Supabase
-      const agendaRecord = await AgendaService.createAgenda({
-        meeting_title: meetingTitle,
-        opening: agenda.opening,
-        topics: agenda.topics,
-        wrap_up: agenda.wrapUp,
-        is_public: true
-      });
-      
-      // Store the saved agenda ID and share token
-      setSavedAgendaId(agendaRecord.id);
-      setShareToken(agendaRecord.share_token);
-      
-      // Fetch the saved agenda from Supabase to show the preview
-      const savedAgenda = await AgendaService.getAgendaById(agendaRecord.id);
-      if (savedAgenda) {
-        setAgenda(AgendaService.toAgenda(savedAgenda));
-        setMeetingTitle(savedAgenda.meeting_title);
-      }
-      
-      setIsConfirmed(true);
-      setShowSuccessMessage(true);
-      alert('Agenda saved successfully!');
-    } catch (err: unknown) {
-      setError('Failed to save agenda. Please try again.');
-      console.error('Error saving agenda:', err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-6 py-8">
-          <Link 
-            href="/" 
-            onClick={(e) => { e.preventDefault(); resetToHome(); }}
-            className="flex items-center gap-4 hover:opacity-80 transition-opacity group"
-          >
-            <div className="flex-shrink-0">
-              <Image 
-                src="/logo.svg" 
-                alt="QuickMeet Logo" 
-                width={40}
-                height={40}
-                className="w-10 h-10 group-hover:scale-105 transition-transform duration-200"
-              />
-            </div>
-            <div className="flex flex-col">
-              <h1 className="text-2xl font-bold text-gray-900 leading-tight">QuickMeet</h1>
-              <p className="text-sm text-gray-500 leading-tight">AI-powered meeting agendas</p>
-            </div>
-          </Link>
-        </div>
-      </header>
-
-      <main className="max-w-2xl mx-auto px-6 py-12">
-        <div className="space-y-6">
-          <MeetingInput 
-            onGenerate={handleGenerateAgenda}
-            onOpenTemplates={() => setShowTemplates(true)}
-            isGenerating={isGenerating}
-          />
-
-          {/* Loading Indicator for Shared Agendas */}
-          {isLoadingShared && (
-            <div className="bg-white rounded-lg shadow-md p-8 mb-6 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-              <p className="text-gray-600">Loading shared agenda...</p>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-              <p className="text-red-700 text-sm font-medium">{error}</p>
-            </div>
-          )}
-
-          {/* Agenda Display Section */}
-          {agenda && (
-            <AgendaDisplay
-              agenda={agenda}
-              onShare={handleShare}
-              onUpdate={handleAgendaUpdate}
-              onConfirm={handleConfirmAgenda}
-              isSaving={isSaving}
-              isConfirmed={isConfirmed}
-              isPreview={isConfirmed}
-            />
-          )}
-
-          {/* Confirmation Status */}
-          {showSuccessMessage && (
-            <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <p className="text-green-700 font-medium">Agenda saved successfully!</p>
-                </div>
-              </div>
-
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="text-center mt-16">
-          <p className="text-xs text-gray-400">Powered by AI</p>
-        </div>
-      </main>
-      {showTemplates && (
-        <TemplateSelector
-          onClose={() => setShowTemplates(false)}
-          onSelect={(t: AgendaTemplateItem) => {
-            setMeetingTitle(t.name);
-            setAgenda({
-              opening: t.agenda.opening,
-              topics: t.agenda.topics.map(tp => ({ ...tp })),
-              wrapUp: t.agenda.wrapUp,
-            });
-            setIsConfirmed(false);
-            setShareToken(null);
-            setShowSuccessMessage(false);
-            setShowTemplates(false);
-            // Strip any token so shared agendas don't override selection
-            if (typeof window !== 'undefined') {
-              window.history.replaceState(null, '', '/');
-            }
-          }}
-        />
-      )}
-    </div>
-  );
-}
+import Header from '@/components/layout/Header';
 
 export default function Home() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+
+      {/* Landing */}
+      <main className="mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-16">
+        {/* Hero */}
+        <section className="text-center space-y-4">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">Generate professional meeting agendas in seconds</h2>
+          <p className="text-base sm:text-lg text-gray-600 max-w-3xl mx-auto">Cut prep time, increase clarity, and keep your team aligned with smart, editable agendas.</p>
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link href="/generate" className="w-full sm:w-auto inline-block rounded-lg bg-gray-900 px-6 py-3 text-white hover:bg-gray-800 text-center">Create Free Agenda</Link>
+            <Link href="/generate#templates" className="w-full sm:w-auto inline-block rounded-lg border border-gray-300 px-6 py-3 text-gray-700 hover:bg-gray-50 text-center">See Templates</Link>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section className="mt-12 sm:mt-16 grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+            <h3 className="font-semibold text-gray-900 text-base sm:text-lg">⚡ Instant Agendas</h3>
+            <p className="mt-2 text-sm text-gray-600">Professional structures ready in seconds — tailored to your meeting.</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+            <h3 className="font-semibold text-gray-900 text-base sm:text-lg">📝 Edit‑First Flow</h3>
+            <p className="mt-2 text-sm text-gray-600">Tweak opening, topics, timing, and wrap‑up before you share.</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+            <h3 className="font-semibold text-gray-900 text-base sm:text-lg">📂 Smart Templates</h3>
+            <p className="mt-2 text-sm text-gray-600">Standup, 1:1, sprint planning, sales, board updates — and more.</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+            <h3 className="font-semibold text-gray-900 text-base sm:text-lg">🔗 Share Anywhere</h3>
+            <p className="mt-2 text-sm text-gray-600">Share a unique link or export as PDF. Calendar export coming soon.</p>
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section className="mt-12 sm:mt-16 text-center">
+          <p className="text-sm text-gray-500">How it works</p>
+          <h3 className="mt-1 text-xl sm:text-2xl font-semibold text-gray-900">Type → Tweak → Share</h3>
+          <div className="mt-6 grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-3">
+            <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+              <h4 className="font-medium text-gray-900 text-base sm:text-lg">Pick a template (or type your title)</h4>
+              <p className="mt-2 text-sm text-gray-600">Start with a proven structure or let AI draft one for you.</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+              <h4 className="font-medium text-gray-900 text-base sm:text-lg">Customize in seconds</h4>
+              <p className="mt-2 text-sm text-gray-600">Edit topics, durations, and notes inline — no friction.</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+              <h4 className="font-medium text-gray-900 text-base sm:text-lg">Share instantly</h4>
+              <p className="mt-2 text-sm text-gray-600">Send a link or export. Everyone&apos;s aligned before the meeting starts.</p>
+            </div>
+          </div>
+          <div className="pt-6 sm:pt-8">
+            <Link href="/generate" className="inline-block rounded-lg bg-gray-900 px-6 py-3 text-white hover:bg-gray-800">Generate an agenda</Link>
+          </div>
+        </section>
+
+        {/* Social proof / Trust */}
+        <section className="mt-12 sm:mt-16 text-center space-y-4">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900">Teams are spending less time prepping — and more time deciding.</h3>
+          <p className="text-base sm:text-lg text-gray-600">&quot;Finally, meeting prep takes minutes, not hours.&quot;</p>
+          <p className="text-sm text-gray-500">Planned integrations: Google Calendar • Slack • Gmail</p>
+        </section>
+
+        {/* Feature deep dive (optional) */}
+        <section className="mt-12 sm:mt-16 grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-3">
+          <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+            <h4 className="font-medium text-gray-900 text-base sm:text-lg">Agenda preview</h4>
+            <p className="mt-2 text-sm text-gray-600">Opening, topics with durations, and wrap‑up — clean and organized.</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+            <h4 className="font-medium text-gray-900 text-base sm:text-lg">Templates gallery</h4>
+            <p className="mt-2 text-sm text-gray-600">Choose common meeting types or save your own favorites.</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+            <h4 className="font-medium text-gray-900 text-base sm:text-lg">Sharing options</h4>
+            <p className="mt-2 text-sm text-gray-600">Share a link or export to PDF. Calendar export (ICS) coming soon.</p>
+          </div>
+        </section>
+
+        {/* Benefits */}
+        <section className="mt-12 sm:mt-16 grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+            <h4 className="font-medium text-gray-900 text-base sm:text-lg">Save prep time ⏳</h4>
+            <p className="mt-2 text-sm text-gray-600">From blank page to polished agenda in minutes.</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+            <h4 className="font-medium text-gray-900 text-base sm:text-lg">Increase clarity ✅</h4>
+            <p className="mt-2 text-sm text-gray-600">Every meeting has a purpose, plan, and timebox.</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+            <h4 className="font-medium text-gray-900 text-base sm:text-lg">Standardize rituals 🧩</h4>
+            <p className="mt-2 text-sm text-gray-600">Consistent standups, reviews, and 1:1s.</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 p-4 sm:p-6">
+            <h4 className="font-medium text-gray-900 text-base sm:text-lg">Reduce wasted time 💸</h4>
+            <p className="mt-2 text-sm text-gray-600">Focused discussions, documented decisions, clear next steps.</p>
+          </div>
+        </section>
+
+        {/* Final CTA */}
+        <section className="mt-16 sm:mt-20 text-center space-y-4">
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Stop wasting time on messy meetings</h3>
+          <p className="text-base sm:text-lg text-gray-600">Create your first agenda in seconds — free.</p>
+          <div className="pt-2">
+            <Link href="/generate" className="inline-block rounded-lg bg-gray-900 px-6 py-3 text-white hover:bg-gray-800">Get Started Free</Link>
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-gray-200 py-6 sm:py-8">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 text-sm text-gray-500 text-center">
+          <div>Built with ❤️ to make meetings better.</div>
         </div>
-      </div>
-    }>
-      <HomeContent />
-    </Suspense>
+      </footer>
+    </div>
   );
 }
